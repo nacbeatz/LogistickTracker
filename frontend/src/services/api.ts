@@ -202,6 +202,19 @@ export const messagesApi = {
   getUnreadCount: () => api.get('/messages/unread/count'),
 }
 
+// AI API
+export const aiApi = {
+  predictEta: (shipmentId: string) =>
+    api.get(`/ai/predict-eta/${shipmentId}`),
+
+  riskAnalysis: () => api.get('/ai/risk-analysis'),
+
+  insights: () => api.get('/ai/insights'),
+
+  query: (question: string) =>
+    api.post('/ai/query', { question }),
+}
+
 // Users API
 export const usersApi = {
   getAll: (params?: { role?: string; search?: string }) =>
@@ -228,6 +241,7 @@ interface User {
   role: string
   company?: string
   phone?: string
+  language?: string
 }
 
 interface CreateShipmentData {

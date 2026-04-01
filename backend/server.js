@@ -18,6 +18,8 @@ const dashboardRoutes = require('./routes/dashboard');
 const invoiceRoutes = require('./routes/invoices');
 const ratingRoutes = require('./routes/ratings');
 const messageRoutes = require('./routes/messages');
+const webhookRoutes = require('./routes/webhooks');
+const aiRoutes = require('./routes/ai');
 
 // Initialize Express app
 const app = express();
@@ -51,6 +53,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -78,6 +82,8 @@ app.get('/', (req, res) => {
       invoices: '/api/invoices',
       ratings: '/api/ratings',
       messages: '/api/messages',
+      webhooks: '/api/webhooks (API key required)',
+      ai: '/api/ai',
       health: '/api/health'
     }
   });

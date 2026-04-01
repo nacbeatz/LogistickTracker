@@ -385,7 +385,7 @@ const ShipmentDetail = () => {
                           <p className="text-sm text-gray-500">{doc.originalName}</p>
                         </div>
                       </div>
-                      {doc.isLocked && <Lock className="w-4 h-4 text-red-400" title="Locked until payment" />}
+                      {doc.isLocked && <span title="Locked until payment"><Lock className="w-4 h-4 text-red-400" /></span>}
                     </div>
                     <div className="mt-4 flex items-center justify-between">
                       <span className={`text-xs font-medium ${
