@@ -107,10 +107,14 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`
+// Export for Vercel serverless
+module.exports = app;
+
+// Only start listener when running locally (not on Vercel)
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`
 ╔══════════════════════════════════════════════════════════╗
 ║     Messenger Logistics Tracking System - Backend        ║
 ╠══════════════════════════════════════════════════════════╣
@@ -118,7 +122,6 @@ app.listen(PORT, () => {
 ║  API Base URL: http://localhost:${PORT}/api                 ║
 ║  Health Check: http://localhost:${PORT}/api/health          ║
 ╚══════════════════════════════════════════════════════════╝
-  `);
-});
-
-module.exports = app;
+    `);
+  });
+}
