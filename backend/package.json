@@ -4,6 +4,7 @@
   "description": "Messenger Logistics Shipment Tracking System Backend",
   "main": "server.js",
   "scripts": {
+    "build": "echo \"No build step\"",
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node seed.js",
