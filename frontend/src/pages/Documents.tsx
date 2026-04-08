@@ -1,17 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { 
-  FileText, 
-  Upload, 
-  Download, 
-  CheckCircle, 
+import {
+  FileText,
+  Upload,
+  Download,
+  CheckCircle,
   XCircle,
   Lock,
   Search,
-  Filter
+  Filter,
+  X
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
-import { documentsApi } from '../services/api'
+import { documentsApi, shipmentsApi } from '../services/api'
 import { format } from 'date-fns'
 
 interface Document {
@@ -27,33 +28,104 @@ interface Document {
   shipment?: { containerNumber: string }
 }
 
+interface Shipment {
+  _id: string
+  containerNumber: string
+}
+
+const DOC_TYPES = [
+  { value: 'commercial_invoice', label: 'Commercial Invoice' },
+  { value: 'packing_list', label: 'Packing List' },
+  { value: 'bill_of_lading', label: 'Bill of Lading' },
+  { value: 'sea_freight_invoice', label: 'Sea Freight Invoice' },
+  { value: 'payment_receipt', label: 'Payment Receipt' },
+  { value: 'import_permit', label: 'Import Permit' },
+  { value: 'certificate_of_origin', label: 'Certificate of Origin' },
+  { value: 'other', label: 'Other' },
+]
+
 const Documents = () => {
   const { user } = useAuthStore()
   const [searchParams] = useSearchParams()
   const shipmentId = searchParams.get('shipment')
-  
+
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [showUploadModal, setShowUploadModal] = useState(false)
 
+  // Upload form state
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadType, setUploadType] = useState('commercial_invoice')
+  const [uploadShipmentId, setUploadShipmentId] = useState(shipmentId || '')
+  const [uploadNotes, setUploadNotes] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [shipments, setShipments] = useState<Shipment[]>([])
+  const [isDragOver, setIsDragOver] = useState(false)
+
   useEffect(() => {
     fetchDocuments()
   }, [shipmentId])
+
+  useEffect(() => {
+    shipmentsApi.getAll({ limit: 100 })
+      .then(res => setShipments(res.data.data.shipments))
+      .catch(() => {})
+  }, [])
 
   const fetchDocuments = async () => {
     try {
       setIsLoading(true)
       const params: any = {}
       if (shipmentId) params.shipment = shipmentId
-      
       const response = await documentsApi.getAll(params)
       setDocuments(response.data.data.documents)
     } catch (error) {
       console.error('Failed to fetch documents:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const openUploadModal = () => {
+    setUploadFile(null)
+    setUploadType('commercial_invoice')
+    setUploadShipmentId(shipmentId || '')
+    setUploadNotes('')
+    setUploadError('')
+    setShowUploadModal(true)
+  }
+
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) setUploadFile(file)
+  }
+
+  const handleUpload = async () => {
+    if (!uploadFile) { setUploadError('Please select a file.'); return }
+    if (!uploadShipmentId) { setUploadError('Please select a shipment.'); return }
+
+    setUploading(true)
+    setUploadError('')
+    try {
+      const formData = new FormData()
+      formData.append('file', uploadFile)
+      formData.append('shipmentId', uploadShipmentId)
+      formData.append('type', uploadType)
+      if (uploadNotes) formData.append('notes', uploadNotes)
+
+      await documentsApi.upload(formData)
+      setShowUploadModal(false)
+      fetchDocuments()
+    } catch (err: any) {
+      setUploadError(err.response?.data?.message || 'Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -116,7 +188,7 @@ const Documents = () => {
           <p className="text-gray-500">Manage shipment documents</p>
         </div>
         <button
-          onClick={() => setShowUploadModal(true)}
+          onClick={openUploadModal}
           className="btn-primary flex items-center"
         >
           <Upload className="w-5 h-5 mr-2" />
@@ -252,35 +324,95 @@ const Documents = () => {
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">Upload Document</h2>
+              <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="p-6">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary-500 transition">
-                <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600 mb-2">Drag and drop files here, or click to browse</p>
-                <p className="text-sm text-gray-400">PDF, JPG, PNG up to 10MB</p>
-                <input type="file" className="hidden" />
+            <div className="p-6 space-y-4">
+              {/* Drop zone */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={handleFileDrop}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition ${
+                  isDragOver ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400'
+                }`}
+              >
+                <Upload className="w-10 h-10 mx-auto mb-3 text-gray-400" />
+                {uploadFile ? (
+                  <p className="font-medium text-gray-800">{uploadFile.name}</p>
+                ) : (
+                  <>
+                    <p className="text-gray-600 mb-1">Click to browse or drag & drop</p>
+                    <p className="text-xs text-gray-400">PDF, JPG, PNG, DOC up to 10MB</p>
+                  </>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  className="hidden"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                />
               </div>
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                  <option>Commercial Invoice</option>
-                  <option>Packing List</option>
-                  <option>Bill of Lading</option>
-                  <option>Payment Receipt</option>
-                  <option>Other</option>
+
+              {/* Shipment selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Shipment <span className="text-red-500">*</span></label>
+                <select
+                  value={uploadShipmentId}
+                  onChange={(e) => setUploadShipmentId(e.target.value)}
+                  className="input"
+                >
+                  <option value="">— Select a shipment —</option>
+                  {shipments.map(s => (
+                    <option key={s._id} value={s._id}>{s.containerNumber}</option>
+                  ))}
                 </select>
               </div>
+
+              {/* Document type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
+                <select
+                  value={uploadType}
+                  onChange={(e) => setUploadType(e.target.value)}
+                  className="input"
+                >
+                  {DOC_TYPES.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <input
+                  type="text"
+                  value={uploadNotes}
+                  onChange={(e) => setUploadNotes(e.target.value)}
+                  placeholder="Any notes about this document"
+                  className="input"
+                />
+              </div>
+
+              {uploadError && (
+                <p className="text-sm text-red-600">{uploadError}</p>
+              )}
             </div>
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
-              <button
-                onClick={() => setShowUploadModal(false)}
-                className="btn-secondary"
-              >
-                Cancel
+              <button onClick={() => setShowUploadModal(false)} className="btn-secondary">Cancel</button>
+              <button onClick={handleUpload} disabled={uploading} className="btn-primary flex items-center">
+                {uploading ? (
+                  <><span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" />Uploading...</>
+                ) : (
+                  <><Upload className="w-4 h-4 mr-2" />Upload</>
+                )}
               </button>
-              <button className="btn-primary">Upload</button>
             </div>
           </div>
         </div>
