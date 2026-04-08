@@ -25,26 +25,11 @@ const aiRoutes = require('./routes/ai');
 const app = express();
 
 // Middleware
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
-  'https://logistick-tracker-eight.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:5174',
-];
-
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow all in dev, restrict in production if needed
-    }
-  },
+  origin: "https://messenger-logistick.vercel.app",
+  methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-webhook-key'],
 }));
-app.options('*', cors()); // Handle pre-flight requests explicitly
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
