@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { 
-  Package, 
-  Ship, 
-  Anchor, 
-  CheckCircle, 
-  AlertCircle,
+import {
+  Package,
+  Ship,
+  Anchor,
+  CheckCircle,
+  Bell,
   ChevronRight,
   Upload,
-  MessageSquare
+  MessageSquare,
+  ArrowRight,
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
-import { dashboardApi, shipmentsApi } from '../services/api'
+import { shipmentsApi } from '../services/api'
 import { formatDistanceToNow } from 'date-fns'
 
 interface ShipmentStats {
@@ -31,6 +32,19 @@ interface Shipment {
   clients: Array<{ _id: string; name: string; company: string }>
 }
 
+// All status styles use only primary (blue) and accent (orange) shades
+const statusConfig: Record<string, { label: string; dot: string; badge: string }> = {
+  on_sea:           { label: 'On Sea',      dot: 'bg-primary-500',  badge: 'bg-primary-100 text-primary-700' },
+  arrived_mombasa:  { label: 'Arrived',     dot: 'bg-accent-500',   badge: 'bg-accent-100 text-accent-700' },
+  discharged:       { label: 'Discharged',  dot: 'bg-primary-300',  badge: 'bg-primary-50 text-primary-600' },
+  in_transit:       { label: 'In Transit',  dot: 'bg-primary-400',  badge: 'bg-primary-100 text-primary-600' },
+  delivered:        { label: 'Delivered',   dot: 'bg-primary-700',  badge: 'bg-primary-100 text-primary-800' },
+  completed:        { label: 'Completed',   dot: 'bg-primary-700',  badge: 'bg-primary-100 text-primary-800' },
+}
+
+const getStatus = (s: string) =>
+  statusConfig[s] || { label: s, dot: 'bg-primary-300', badge: 'bg-primary-50 text-primary-600' }
+
 const Dashboard = () => {
   const { user } = useAuthStore()
   const [stats, setStats] = useState<ShipmentStats>({ total: 0, onSea: 0, atMombasa: 0, completed: 0 })
@@ -45,14 +59,10 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true)
-      
-      // Fetch stats
-      const statsResponse = await shipmentsApi.getStats()
-      setStats(statsResponse.data.data)
-      
-      // Fetch recent shipments
-      const shipmentsResponse = await shipmentsApi.getAll({ limit: 5 })
-      setShipments(shipmentsResponse.data.data.shipments)
+      const statsRes = await shipmentsApi.getStats()
+      setStats(statsRes.data.data)
+      const shipmentsRes = await shipmentsApi.getAll({ limit: 5 })
+      setShipments(shipmentsRes.data.data.shipments)
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
     } finally {
@@ -60,100 +70,108 @@ const Dashboard = () => {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; className: string }> = {
-      on_sea: { label: '🚢 On Sea', className: 'badge-blue' },
-      arrived_mombasa: { label: '⚓ Arrived', className: 'badge-orange' },
-      discharged: { label: '📦 Discharged', className: 'badge-yellow' },
-      in_transit: { label: '🚛 In Transit', className: 'badge-yellow' },
-      delivered: { label: '✅ Delivered', className: 'badge-green' },
-      completed: { label: '✅ Completed', className: 'badge-green' },
-    }
-    return statusMap[status] || { label: status, className: 'badge-blue' }
-  }
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  })
 
   const statCards = [
-    { label: 'Total Shipments', value: stats.total, icon: Package, color: 'bg-primary-500' },
-    { label: 'On Sea', value: stats.onSea, icon: Ship, color: 'bg-primary-500' },
-    { label: 'At Mombasa', value: stats.atMombasa, icon: Anchor, color: 'bg-accent-500' },
-    { label: 'Completed', value: stats.completed, icon: CheckCircle, color: 'bg-green-500' },
+    { label: 'Total Shipments', value: stats.total,     icon: Package,      muted: false },
+    { label: 'On Sea',          value: stats.onSea,     icon: Ship,         muted: false },
+    { label: 'At Mombasa',      value: stats.atMombasa, icon: Anchor,       muted: true  },
+    { label: 'Completed',       value: stats.completed, icon: CheckCircle,  muted: true  },
   ]
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, {user?.name}
-          </h1>
-          <p className="text-gray-500">{user?.company}</p>
-        </div>
-        <p className="text-gray-500">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </p>
+      {/* Welcome Banner */}
+      <div className="bg-primary-600 rounded-2xl px-6 py-5 text-white">
+        <p className="text-primary-200 text-xs font-medium">{today}</p>
+        <h1 className="text-xl font-bold mt-1">
+          Welcome back, {user?.name?.split(' ')[0]}
+        </h1>
+        <p className="text-primary-300 text-sm mt-0.5">{user?.company}</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((card, index) => (
-          <div key={index} className="card">
-            <div className={`h-1 ${card.color} rounded-t-xl`} />
-            <div className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">{card.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{card.value}</p>
-                </div>
-                <div className={`w-12 h-12 ${card.color} bg-opacity-10 rounded-lg flex items-center justify-center`}>
-                  <card.icon className={`w-6 h-6 ${card.color.replace('bg-', 'text-')}`} />
-                </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((card, i) => (
+          <div key={i} className="bg-white rounded-2xl p-5 border border-gray-100">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-gray-400 font-medium">{card.label}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{card.value}</p>
+              </div>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                card.muted ? 'bg-accent-50' : 'bg-primary-50'
+              }`}>
+                <card.icon className={`w-5 h-5 ${card.muted ? 'text-accent-500' : 'text-primary-500'}`} />
               </div>
             </div>
           </div>
         ))}
       </div>
 
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Active Shipments */}
-        <div className="lg:col-span-2 card">
-          <div className="card-header flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Active Shipments</h2>
-            <Link to="/shipments" className="text-primary-600 hover:text-primary-700 text-sm flex items-center">
-              View All <ChevronRight className="w-4 h-4 ml-1" />
+        {/* Shipments */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h2 className="text-sm font-bold text-gray-900">Active Shipments</h2>
+            <Link
+              to="/shipments"
+              className="text-xs text-primary-500 hover:text-primary-700 font-medium flex items-center"
+            >
+              View All <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
             </Link>
           </div>
-          <div className="card-body">
+          <div className="p-4">
             {isLoading ? (
-              <div className="text-center py-8 text-gray-500">Loading...</div>
+              <div className="space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-14 bg-gray-50 rounded-xl animate-pulse" />
+                ))}
+              </div>
             ) : shipments.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>No active shipments</p>
+              <div className="text-center py-12">
+                <Package className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                <p className="text-gray-400 text-sm">No active shipments</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-gray-50">
                 {shipments.map((shipment) => {
-                  const status = getStatusBadge(shipment.status)
+                  const status = getStatus(shipment.status)
                   return (
                     <Link
                       key={shipment._id}
                       to={`/shipments/${shipment._id}`}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                      className="flex items-center justify-between py-3.5 px-2 hover:bg-gray-50 rounded-xl transition group"
                     >
-                      <div>
-                        <div className="flex items-center space-x-3">
-                          <span className="font-medium text-gray-900">{shipment.containerNumber}</span>
-                          <span className={status.className}>{status.label}</span>
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${status.dot}`} />
+                        <div className="min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-semibold text-sm text-gray-900">
+                              {shipment.containerNumber}
+                            </span>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.badge}`}>
+                              {status.label}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-1 mt-0.5">
+                            <span className="text-xs text-gray-400">{shipment.origin}</span>
+                            <ArrowRight className="w-3 h-3 text-gray-300" />
+                            <span className="text-xs text-gray-500">{shipment.destination}</span>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {shipment.origin} → {shipment.destination}
-                        </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">
-                          ETA: {formatDistanceToNow(new Date(shipment.eta), { addSuffix: true })}
-                        </p>
+                      <div className="flex items-center space-x-3 flex-shrink-0">
+                        <div className="text-right hidden sm:block">
+                          <p className="text-xs text-gray-400">ETA</p>
+                          <p className="text-xs font-semibold text-gray-700">
+                            {formatDistanceToNow(new Date(shipment.eta), { addSuffix: true })}
+                          </p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-gray-400 transition" />
                       </div>
                     </Link>
                   )
@@ -163,58 +181,62 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Notifications & Quick Actions */}
-        <div className="space-y-6">
+        {/* Right Panel */}
+        <div className="space-y-4">
           {/* Quick Actions */}
-          <div className="card">
-            <div className="card-header">
-              <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-            </div>
-            <div className="card-body">
-              <div className="grid grid-cols-2 gap-3">
-                <Link
-                  to="/documents"
-                  className="flex flex-col items-center p-4 bg-primary-50 rounded-lg hover:bg-primary-100 transition"
-                >
-                  <Upload className="w-6 h-6 text-primary-500 mb-2" />
-                  <span className="text-sm font-medium text-primary-700">Upload Doc</span>
-                </Link>
-                <button className="flex flex-col items-center p-4 bg-accent-50 rounded-lg hover:bg-accent-100 transition">
-                  <MessageSquare className="w-6 h-6 text-accent-500 mb-2" />
-                  <span className="text-sm font-medium text-accent-700">Message</span>
-                </button>
-              </div>
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <h2 className="text-sm font-bold text-gray-900 mb-3">Quick Actions</h2>
+            <div className="space-y-2">
+              <Link
+                to="/documents"
+                className="flex items-center space-x-3 p-3 rounded-xl bg-primary-50 hover:bg-primary-100 transition"
+              >
+                <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Upload className="w-4 h-4 text-primary-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-primary-700">Upload Document</p>
+                  <p className="text-xs text-primary-400">Add shipping files</p>
+                </div>
+              </Link>
+              <button className="w-full flex items-center space-x-3 p-3 rounded-xl bg-accent-50 hover:bg-accent-100 transition">
+                <div className="w-8 h-8 bg-accent-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <MessageSquare className="w-4 h-4 text-accent-600" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-accent-700">Send Message</p>
+                  <p className="text-xs text-accent-400">Contact your agent</p>
+                </div>
+              </button>
             </div>
           </div>
 
           {/* Notifications */}
-          <div className="card">
-            <div className="card-header flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
-              <Link to="/notifications" className="text-primary-600 hover:text-primary-700 text-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-gray-900">Notifications</h2>
+              <Link to="/notifications" className="text-xs text-primary-500 hover:text-primary-700 font-medium">
                 View All
               </Link>
             </div>
-            <div className="card-body">
-              {notifications.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">
-                  <AlertCircle className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">No new notifications</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {notifications.slice(0, 3).map((notification: any) => (
-                    <div key={notification._id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-2 h-2 bg-primary-500 rounded-full mt-2" />
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-900">{notification.title}</p>
-                        <p className="text-xs text-gray-500">{notification.message}</p>
-                      </div>
+            {notifications.length === 0 ? (
+              <div className="text-center py-8">
+                <Bell className="w-7 h-7 text-gray-200 mx-auto mb-2" />
+                <p className="text-gray-400 text-xs">No new notifications</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {notifications.slice(0, 3).map((n: any) => (
+                  <div key={n._id} className="flex items-start space-x-2.5 p-3 bg-gray-50 rounded-xl">
+                    <div className="w-1.5 h-1.5 bg-primary-500 rounded-full mt-1.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-900 truncate">{n.title}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{n.message}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

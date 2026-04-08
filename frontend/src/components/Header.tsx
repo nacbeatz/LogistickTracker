@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, User, LogOut, Menu } from 'lucide-react'
+import { Bell, User, LogOut, Search, ChevronDown } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useState, useEffect } from 'react'
 import { notificationsApi } from '../services/api'
@@ -9,11 +9,10 @@ const Header = () => {
   const { user, logout } = useAuthStore()
   const [unreadCount, setUnreadCount] = useState(0)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   useEffect(() => {
     fetchUnreadCount()
-    const interval = setInterval(fetchUnreadCount, 30000) // Poll every 30s
+    const interval = setInterval(fetchUnreadCount, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -31,121 +30,92 @@ const Header = () => {
     navigate('/login')
   }
 
+  const initials = user?.name
+    ?.split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U'
+
   return (
-    <header className="bg-primary-500 text-white sticky top-0 z-50">
-      {/* Top Bar */}
-      <div className="bg-primary-600 py-2 px-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between text-sm">
-          <div className="flex items-center space-x-4">
-            <span>📧 messengerltd2021@gmail.com</span>
-            <span>📞 +250788310510</span>
-          </div>
-          <div className="hidden md:flex items-center space-x-4">
-            <span>Follow Us:</span>
-            <span>📷 🐦 👥 ▶️</span>
-          </div>
-        </div>
+    <header className="bg-white border-b border-gray-200 px-6 h-16 flex items-center justify-between sticky top-0 z-40 flex-shrink-0">
+      {/* Search */}
+      <div className="relative hidden md:flex items-center">
+        <Search className="absolute left-3 w-4 h-4 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search containers, shipments..."
+          className="pl-9 pr-4 py-2 bg-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white w-72 transition-all"
+        />
       </div>
 
-      {/* Main Header */}
-      <div className="px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/dashboard" className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-              <span className="text-primary-500 font-bold text-lg">MLT</span>
+      {/* Right Side */}
+      <div className="flex items-center space-x-2 ml-auto">
+        {/* Notifications */}
+        <Link
+          to="/notifications"
+          className="relative p-2.5 hover:bg-gray-100 rounded-lg transition text-gray-500 hover:text-gray-700"
+        >
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 bg-accent-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-semibold leading-none">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </Link>
+
+        {/* Divider */}
+        <div className="w-px h-6 bg-gray-200 mx-1" />
+
+        {/* User Menu */}
+        <div className="relative">
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center space-x-2.5 px-2 py-1.5 hover:bg-gray-100 rounded-lg transition"
+          >
+            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-700 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xs font-bold">{initials}</span>
             </div>
-            <div className="hidden sm:block">
-              <h1 className="font-bold text-lg">Messenger Logistics</h1>
-              <p className="text-xs text-primary-100">Shipment Tracking System</p>
+            <div className="hidden sm:block text-left">
+              <p className="text-sm font-semibold text-gray-900 leading-none">{user?.name}</p>
+              <p className="text-xs text-gray-400 mt-0.5 capitalize">{user?.role}</p>
             </div>
-          </Link>
+            <ChevronDown className="w-3.5 h-3.5 text-gray-400 hidden sm:block" />
+          </button>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
-            <Link to="/dashboard" className="hover:text-primary-100 transition">Dashboard</Link>
-            <Link to="/shipments" className="hover:text-primary-100 transition">Shipments</Link>
-            <Link to="/documents" className="hover:text-primary-100 transition">Documents</Link>
-            <Link to="/invoices" className="hover:text-primary-100 transition">Invoices</Link>
-            {user?.role !== 'client' && (
-              <Link to="/staff" className="hover:text-primary-100 transition">Staff</Link>
-            )}
-            {(user?.role === 'manager' || user?.role === 'admin') && (
-              <Link to="/manager" className="hover:text-primary-100 transition">Manager</Link>
-            )}
-          </nav>
-
-          {/* Right Actions */}
-          <div className="flex items-center space-x-4">
-            {/* Notifications */}
-            <Link to="/notifications" className="relative p-2 hover:bg-primary-600 rounded-lg transition">
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-accent-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </Link>
-
-            {/* User Menu */}
-            <div className="relative">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center space-x-2 p-2 hover:bg-primary-600 rounded-lg transition"
-              >
-                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                  <User className="w-5 h-5 text-primary-500" />
+          {showUserMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowUserMenu(false)}
+              />
+              <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{user?.company}</p>
                 </div>
-                <span className="hidden sm:block">{user?.name}</span>
-              </button>
-
-              {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 text-gray-800">
-                  <Link
-                    to="/profile"
-                    className="block px-4 py-2 hover:bg-gray-100"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    Profile
-                  </Link>
+                <Link
+                  to="/profile"
+                  className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                  onClick={() => setShowUserMenu(false)}
+                >
+                  <User className="w-4 h-4 mr-3 text-gray-400" />
+                  My Profile
+                </Link>
+                <div className="border-t border-gray-100 mt-1 pt-1">
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 flex items-center"
+                    className="w-full flex items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition"
                   >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
+                    <LogOut className="w-4 h-4 mr-3" />
+                    Sign Out
                   </button>
                 </div>
-              )}
-            </div>
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="md:hidden p-2 hover:bg-primary-600 rounded-lg"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      {showMobileMenu && (
-        <div className="md:hidden bg-primary-600 px-4 py-2">
-          <nav className="flex flex-col space-y-2">
-            <Link to="/dashboard" className="py-2 hover:text-primary-100">Dashboard</Link>
-            <Link to="/shipments" className="py-2 hover:text-primary-100">Shipments</Link>
-            <Link to="/documents" className="py-2 hover:text-primary-100">Documents</Link>
-            {user?.role !== 'client' && (
-              <Link to="/staff" className="py-2 hover:text-primary-100">Staff</Link>
-            )}
-            {(user?.role === 'manager' || user?.role === 'admin') && (
-              <Link to="/manager" className="py-2 hover:text-primary-100">Manager</Link>
-            )}
-          </nav>
-        </div>
-      )}
     </header>
   )
 }

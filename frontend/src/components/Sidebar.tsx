@@ -1,14 +1,16 @@
-import { NavLink } from 'react-router-dom'
-import { 
-  LayoutDashboard, 
-  Package, 
-  FileText, 
-  Bell, 
+import { NavLink, Link } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  Package,
+  FileText,
+  Bell,
   User,
   Users,
   BarChart3,
   PlusCircle,
-  DollarSign
+  DollarSign,
+  Ship,
+  Activity
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 
@@ -52,43 +54,73 @@ const Sidebar = () => {
   const links = getLinks()
 
   return (
-    <aside className="hidden lg:block w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-120px)]">
-      <nav className="p-4 space-y-1">
+    <aside className="hidden lg:flex flex-col w-64 bg-primary-900 h-screen sticky top-0 flex-shrink-0 overflow-y-auto">
+      {/* Logo */}
+      <Link
+        to="/dashboard"
+        className="flex items-center space-x-3 px-5 h-16 border-b border-primary-800 flex-shrink-0"
+      >
+        <div className="w-9 h-9 bg-primary-500 rounded-lg flex items-center justify-center flex-shrink-0">
+          <Ship className="w-5 h-5 text-white" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="font-bold text-white text-sm leading-tight truncate">
+            Messenger Logistics
+          </h1>
+          <p className="text-primary-300 text-xs mt-0.5">Shipment Tracker</p>
+        </div>
+      </Link>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-5 space-y-0.5 overflow-y-auto">
+        <p className="text-primary-400 text-xs font-semibold uppercase tracking-wider px-3 mb-3">
+          Navigation
+        </p>
         {links.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}
+            end={link.to === '/dashboard'}
             className={({ isActive }) =>
-              `flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
+              `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
                 isActive
-                  ? 'bg-primary-50 text-primary-600 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-primary-500 text-white'
+                  : 'text-primary-300 hover:bg-primary-800 hover:text-white'
               }`
             }
           >
-            <link.icon className="w-5 h-5" />
+            <link.icon className="w-4 h-4 flex-shrink-0" />
             <span>{link.label}</span>
           </NavLink>
         ))}
       </nav>
 
-      {/* Quick Stats */}
-      <div className="p-4 border-t border-gray-200">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-          Quick Stats
-        </h3>
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Active Shipments</span>
-            <span className="font-medium">12</span>
+      {/* Live Status */}
+      <div className="px-3 pb-5 border-t border-primary-800 pt-4 flex-shrink-0">
+        <div className="flex items-center space-x-2 px-3 mb-3">
+          <Activity className="w-3.5 h-3.5 text-primary-400" />
+          <p className="text-primary-400 text-xs font-semibold uppercase tracking-wider">
+            Live Status
+          </p>
+        </div>
+        <div className="bg-primary-800 rounded-lg px-3 py-3 space-y-2.5">
+          <div className="flex justify-between items-center">
+            <span className="text-primary-300 text-xs">Active Shipments</span>
+            <span className="text-white text-xs font-bold bg-primary-700 px-2 py-0.5 rounded-full">
+              12
+            </span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">On Sea</span>
-            <span className="font-medium text-primary-600">3</span>
+          <div className="flex justify-between items-center">
+            <span className="text-primary-300 text-xs">On Sea</span>
+            <span className="text-primary-200 text-xs font-bold bg-primary-700 px-2 py-0.5 rounded-full">
+              3
+            </span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Pending Docs</span>
-            <span className="font-medium text-accent-500">2</span>
+          <div className="flex justify-between items-center">
+            <span className="text-primary-300 text-xs">Pending Docs</span>
+            <span className="text-accent-300 text-xs font-bold bg-primary-700 px-2 py-0.5 rounded-full">
+              2
+            </span>
           </div>
         </div>
       </div>
