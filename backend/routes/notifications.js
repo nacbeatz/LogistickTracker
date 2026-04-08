@@ -18,6 +18,7 @@ router.get('/', auth, async (req, res) => {
 
     const notifications = await Notification.find(query)
       .populate('shipment', 'containerNumber')
+      .populate('task', 'title status type')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);

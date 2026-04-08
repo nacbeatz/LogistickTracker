@@ -10,9 +10,12 @@ import {
   Upload,
   Users,
   Ship,
+  ClipboardList,
+  Clock,
+  PlayCircle,
 } from 'lucide-react'
-import { dashboardApi, shipmentsApi } from '../services/api'
-import { formatDistanceToNow } from 'date-fns'
+import { dashboardApi, shipmentsApi, tasksApi } from '../services/api'
+import { formatDistanceToNow, format, isPast } from 'date-fns'
 
 interface DashboardStats {
   shipments: { total: number; onSea: number; atMombasa: number; completed: number }
@@ -26,6 +29,21 @@ interface Shipment {
   status: string
   eta: string
   clients: Array<{ name: string; company: string }>
+}
+
+interface Task {
+  _id: string
+  title: string
+  type: string
+  status: string
+  priority: string
+  dueDate?: string
+  shipment?: { _id: string; containerNumber: string }
+  createdBy?: { name: string }
+}
+
+const PRIORITY_DOT: Record<string, string> = {
+  low: 'bg-gray-400', medium: 'bg-blue-500', high: 'bg-orange-500', urgent: 'bg-red-500'
 }
 
 const statusConfig: Record<string, { label: string; badge: string; dot: string }> = {
@@ -45,9 +63,12 @@ const StaffDashboard = () => {
   const [recentShipments, setRecentShipments] = useState<Shipment[]>([])
   const [attentionShipments, setAttentionShipments] = useState<Shipment[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [myTasks, setMyTasks] = useState<Task[]>([])
+  const [taskUpdating, setTaskUpdating] = useState<string | null>(null)
 
   useEffect(() => {
     fetchDashboardData()
+    fetchMyTasks()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -65,11 +86,41 @@ const StaffDashboard = () => {
     }
   }
 
+  const fetchMyTasks = async () => {
+    try {
+      const res = await tasksApi.getAll({ status: 'pending' })
+      // Also fetch in_progress
+      const inProgressRes = await tasksApi.getAll({ status: 'in_progress' })
+      const combined = [...res.data.data.tasks, ...inProgressRes.data.data.tasks]
+      setMyTasks(combined)
+    } catch {
+      // silent
+    }
+  }
+
+  const handleTaskAction = async (taskId: string, newStatus: 'in_progress' | 'completed') => {
+    setTaskUpdating(taskId)
+    try {
+      await tasksApi.updateStatus(taskId, newStatus)
+      if (newStatus === 'completed') {
+        setMyTasks(prev => prev.filter(t => t._id !== taskId))
+      } else {
+        setMyTasks(prev => prev.map(t => t._id === taskId ? { ...t, status: newStatus } : t))
+      }
+    } catch {
+      // silent
+    } finally {
+      setTaskUpdating(null)
+    }
+  }
+
+  const activeTasks = myTasks.filter(t => t.status !== 'completed')
+
   const statCards = [
-    { label: 'Total Shipments', value: stats?.shipments.total     ?? 0, icon: Package,     accent: false },
-    { label: 'On Sea',          value: stats?.shipments.onSea     ?? 0, icon: Ship,        accent: false },
-    { label: 'Pending Docs',    value: stats?.documents.pending   ?? 0, icon: FileText,    accent: true  },
-    { label: 'Completed',       value: stats?.shipments.completed ?? 0, icon: CheckCircle, accent: false },
+    { label: 'Total Shipments', value: stats?.shipments.total     ?? 0, icon: Package,       accent: false },
+    { label: 'On Sea',          value: stats?.shipments.onSea     ?? 0, icon: Ship,          accent: false },
+    { label: 'Pending Docs',    value: stats?.documents.pending   ?? 0, icon: FileText,      accent: true  },
+    { label: 'My Tasks',        value: activeTasks.length,              icon: ClipboardList, accent: activeTasks.length > 0 },
   ]
 
   return (
@@ -208,6 +259,99 @@ const StaffDashboard = () => {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* My Tasks */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center space-x-3">
+            <ClipboardList className="w-4 h-4 text-primary-500" />
+            <div>
+              <h2 className="text-sm font-bold text-gray-900">My Tasks</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {activeTasks.length === 0 ? 'All caught up!' : `${activeTasks.length} task${activeTasks.length !== 1 ? 's' : ''} need attention`}
+              </p>
+            </div>
+          </div>
+          {activeTasks.length > 0 && (
+            <span className="w-6 h-6 rounded-full bg-accent-500 text-white text-xs font-bold flex items-center justify-center">
+              {activeTasks.length}
+            </span>
+          )}
+        </div>
+
+        <div className="divide-y divide-gray-50">
+          {activeTasks.length === 0 ? (
+            <div className="flex flex-col items-center py-10 text-center">
+              <CheckCircle className="w-8 h-8 text-primary-200 mb-2" />
+              <p className="text-gray-400 text-sm">No pending tasks assigned to you</p>
+            </div>
+          ) : (
+            activeTasks.map(task => {
+              const isOverdue = task.dueDate && isPast(new Date(task.dueDate))
+              const isUpdating = taskUpdating === task._id
+              return (
+                <div key={task._id} className="flex items-start justify-between px-6 py-4 hover:bg-gray-50 transition">
+                  <div className="flex items-start space-x-3 min-w-0">
+                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${PRIORITY_DOT[task.priority] || 'bg-gray-400'}`} />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm">{task.title}</p>
+                      <div className="flex items-center space-x-2 mt-0.5 flex-wrap gap-y-0.5">
+                        {task.shipment && (
+                          <Link
+                            to={`/shipments/${task.shipment._id}`}
+                            className="text-xs text-primary-600 hover:underline font-mono"
+                          >
+                            {task.shipment.containerNumber}
+                          </Link>
+                        )}
+                        {task.dueDate && (
+                          <span className={`text-xs flex items-center space-x-0.5 ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                            <Clock className="w-3 h-3" />
+                            <span>{isOverdue ? 'Overdue · ' : ''}{format(new Date(task.dueDate), 'MMM d')}</span>
+                          </span>
+                        )}
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                          task.status === 'in_progress'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {task.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
+                    {task.status === 'pending' && (
+                      <button
+                        onClick={() => handleTaskAction(task._id, 'in_progress')}
+                        disabled={isUpdating}
+                        title="Start task"
+                        className="flex items-center space-x-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition disabled:opacity-50"
+                      >
+                        <PlayCircle className="w-3.5 h-3.5" />
+                        <span>Start</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleTaskAction(task._id, 'completed')}
+                      disabled={isUpdating}
+                      className="flex items-center space-x-1 text-xs font-semibold text-green-600 bg-green-50 hover:bg-green-100 px-2.5 py-1.5 rounded-lg transition disabled:opacity-50"
+                    >
+                      {isUpdating ? (
+                        <span className="w-3.5 h-3.5 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-3.5 h-3.5" />
+                      )}
+                      <span>Complete</span>
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
 

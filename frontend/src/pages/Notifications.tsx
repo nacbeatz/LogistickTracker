@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Bell, Check, Trash2, Package, FileText, MessageSquare, AlertCircle } from 'lucide-react'
-import { notificationsApi } from '../services/api'
+import { Bell, Check, Trash2, Package, FileText, MessageSquare, AlertCircle, CheckCircle } from 'lucide-react'
+import { notificationsApi, tasksApi } from '../services/api'
 import { formatDistanceToNow } from 'date-fns'
 
 interface Notification {
@@ -11,12 +11,14 @@ interface Notification {
   isRead: boolean
   createdAt: string
   shipment?: { containerNumber: string }
+  task?: { _id: string; title: string; status: string }
 }
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const [completingTask, setCompletingTask] = useState<string | null>(null)
 
   useEffect(() => {
     fetchNotifications()
@@ -61,6 +63,24 @@ const Notifications = () => {
       setNotifications(prev => prev.filter(n => n._id !== id))
     } catch (error) {
       console.error('Failed to delete notification:', error)
+    }
+  }
+
+  const completeTask = async (notificationId: string, taskId: string) => {
+    setCompletingTask(taskId)
+    try {
+      await tasksApi.updateStatus(taskId, 'completed')
+      // Mark the notification read and reflect task status locally
+      await notificationsApi.markAsRead(notificationId)
+      setNotifications(prev => prev.map(n =>
+        n._id === notificationId
+          ? { ...n, isRead: true, task: n.task ? { ...n.task, status: 'completed' } : n.task }
+          : n
+      ))
+    } catch (error) {
+      console.error('Failed to complete task:', error)
+    } finally {
+      setCompletingTask(null)
     }
   }
 
@@ -160,7 +180,7 @@ const Notifications = () => {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900">{notification.title}</p>
                           <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
                           {notification.shipment && (
@@ -171,6 +191,31 @@ const Notifications = () => {
                           <p className="text-xs text-gray-400 mt-2">
                             {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                           </p>
+
+                          {/* Inline task completion */}
+                          {notification.type === 'task_assigned' && notification.task && (
+                            <div className="mt-3">
+                              {notification.task.status === 'completed' ? (
+                                <span className="inline-flex items-center space-x-1.5 text-xs font-semibold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg">
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  <span>Task Completed</span>
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => completeTask(notification._id, notification.task!._id)}
+                                  disabled={completingTask === notification.task._id}
+                                  className="inline-flex items-center space-x-1.5 text-xs font-semibold text-green-600 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-lg transition disabled:opacity-50"
+                                >
+                                  {completingTask === notification.task._id ? (
+                                    <span className="w-3.5 h-3.5 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                  )}
+                                  <span>Mark Task Complete</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center space-x-2 ml-4">
                           {!notification.isRead && (
