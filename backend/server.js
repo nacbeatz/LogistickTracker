@@ -44,6 +44,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-webhook-key'],
 }));
+app.options('*', cors()); // Handle pre-flight requests explicitly
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
