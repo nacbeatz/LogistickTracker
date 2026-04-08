@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -13,9 +14,44 @@ import {
   Activity
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
+import { dashboardApi, documentsApi } from '../services/api'
 
 const Sidebar = () => {
   const { user } = useAuthStore()
+  const [liveStats, setLiveStats] = useState<{ active: number | string; onSea: number | string; pendingDocs: number | string }>({
+    active: '—', onSea: '—', pendingDocs: '—'
+  })
+
+  useEffect(() => {
+    if (!user) return
+    const fetchLiveStats = async () => {
+      try {
+        if (user.role === 'client') {
+          const [dashRes, docsRes] = await Promise.all([
+            dashboardApi.getClientDashboard(),
+            documentsApi.getAll({ status: 'pending' })
+          ])
+          const d = dashRes.data.data
+          setLiveStats({
+            active: d.shipments.active.length,
+            onSea: d.shipments.byStatus?.on_sea || 0,
+            pendingDocs: docsRes.data.data.documents.length
+          })
+        } else {
+          const res = await dashboardApi.getOverview()
+          const d = res.data.data
+          setLiveStats({
+            active: d.shipments.total,
+            onSea: d.shipments.onSea,
+            pendingDocs: d.documents.pending
+          })
+        }
+      } catch {
+        // silently fail — sidebar stats are non-critical
+      }
+    }
+    fetchLiveStats()
+  }, [user])
 
   const clientLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -107,19 +143,19 @@ const Sidebar = () => {
           <div className="flex justify-between items-center">
             <span className="text-primary-300 text-xs">Active Shipments</span>
             <span className="text-white text-xs font-bold bg-primary-700 px-2 py-0.5 rounded-full">
-              12
+              {liveStats.active}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-primary-300 text-xs">On Sea</span>
             <span className="text-primary-200 text-xs font-bold bg-primary-700 px-2 py-0.5 rounded-full">
-              3
+              {liveStats.onSea}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-primary-300 text-xs">Pending Docs</span>
             <span className="text-accent-300 text-xs font-bold bg-primary-700 px-2 py-0.5 rounded-full">
-              2
+              {liveStats.pendingDocs}
             </span>
           </div>
         </div>

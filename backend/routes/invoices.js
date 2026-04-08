@@ -18,6 +18,12 @@ const validate = (req, res, next) => {
 // @route   GET /api/invoices
 router.get('/', auth, async (req, res) => {
   try {
+    // Lazily mark past-due invoices as overdue
+    await Invoice.updateMany(
+      { dueDate: { $lt: new Date() }, status: { $in: ['issued', 'pending'] } },
+      { $set: { status: 'overdue' } }
+    );
+
     const { shipment, client, status, page = 1, limit = 20 } = req.query;
     const query = {};
 
