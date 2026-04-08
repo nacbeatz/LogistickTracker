@@ -78,7 +78,8 @@ const Sidebar = () => {
     { to: '/documents', icon: FileText, label: 'Documents' },
     { to: '/invoices', icon: DollarSign, label: 'Invoices' },
     { to: '/staff', icon: Users, label: 'Staff Portal' },
-    { to: '/manager', icon: BarChart3, label: 'Analytics' },
+    { to: '/manager', icon: LayoutDashboard, label: 'Overview' },
+    { to: '/analytics', icon: BarChart3, label: 'Analytics' },
   ]
 
   const getLinks = () => {

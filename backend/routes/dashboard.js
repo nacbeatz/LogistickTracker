@@ -393,4 +393,128 @@ router.get('/client', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/dashboard/analytics
+// @desc    Time-series + breakdown data for the analytics page
+// @access  Private (Manager, Admin)
+router.get('/analytics', auth, authorize('manager', 'admin'), async (req, res) => {
+  try {
+    const now = new Date();
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+
+    // ── 1. Monthly shipments created vs completed ────────────────────
+    const [createdByMonth, completedByMonth] = await Promise.all([
+      Shipment.aggregate([
+        { $match: { createdAt: { $gte: twelveMonthsAgo } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      Shipment.aggregate([
+        { $match: { status: 'completed', updatedAt: { $gte: twelveMonthsAgo } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$updatedAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ])
+    ]);
+
+    // ── 2. Monthly revenue (paid invoices) ───────────────────────────
+    const revenueByMonth = await Invoice.aggregate([
+      { $match: { status: 'paid', paidAt: { $gte: twelveMonthsAgo } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$paidAt' } }, revenue: { $sum: '$paidAmount' }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // ── 3. Monthly overdue invoices ──────────────────────────────────
+    const overdueByMonth = await Invoice.aggregate([
+      { $match: { status: 'overdue', dueDate: { $gte: twelveMonthsAgo } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$dueDate' } }, count: { $sum: 1 }, total: { $sum: '$total' } } },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // ── 4. Current shipment status distribution ──────────────────────
+    const statusDistribution = await Shipment.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // ── 5. Invoice health summary (amounts) ─────────────────────────
+    const invoiceHealth = await Invoice.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 }, total: { $sum: '$total' } } }
+    ]);
+
+    // ── 6. Top 8 clients by shipment count ──────────────────────────
+    const topClients = await Shipment.aggregate([
+      { $match: { isActive: true } },
+      { $unwind: '$clients' },
+      { $group: { _id: '$clients', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 8 },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+      { $unwind: '$user' },
+      { $project: { name: { $ifNull: ['$user.company', '$user.name'] }, count: 1 } }
+    ]);
+
+    // ── 7. Avg transit days by month (completed shipments with etd + actualArrival) ──
+    const transitByMonth = await Shipment.aggregate([
+      { $match: { status: 'completed', etd: { $exists: true }, actualArrival: { $exists: true }, updatedAt: { $gte: twelveMonthsAgo } } },
+      { $project: {
+        month: { $dateToString: { format: '%Y-%m', date: '$updatedAt' } },
+        days: { $divide: [{ $subtract: ['$actualArrival', '$etd'] }, 1000 * 60 * 60 * 24] }
+      }},
+      { $group: { _id: '$month', avgDays: { $avg: '$days' }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // ── Build a complete 12-month label array ────────────────────────
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+
+    const toMap = (arr, key = 'count') => {
+      const m = {};
+      arr.forEach(x => { m[x._id] = x[key]; });
+      return m;
+    };
+
+    const createdMap  = toMap(createdByMonth);
+    const completedMap = toMap(completedByMonth);
+    const revenueMap  = toMap(revenueByMonth, 'revenue');
+    const overdueMap  = toMap(overdueByMonth);
+    const transitMap  = toMap(transitByMonth, 'avgDays');
+
+    const shipmentTrend = months.map(m => ({
+      month: m,
+      created:   createdMap[m]   || 0,
+      completed: completedMap[m] || 0,
+    }));
+
+    const revenueTrend = months.map(m => ({
+      month:   m,
+      revenue: revenueMap[m] || 0,
+      overdue: overdueMap[m] || 0,
+    }));
+
+    const transitTrend = months.map(m => ({
+      month:   m,
+      avgDays: transitMap[m] ? Math.round(transitMap[m]) : null,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        shipmentTrend,
+        revenueTrend,
+        transitTrend,
+        statusDistribution,
+        invoiceHealth,
+        topClients,
+      }
+    });
+  } catch (error) {
+    console.error('Analytics error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;

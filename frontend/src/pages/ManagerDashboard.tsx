@@ -74,7 +74,7 @@ const ManagerDashboard = () => {
           <p className="text-gray-400 text-sm mt-0.5">Operations Overview</p>
         </div>
         <Link
-          to="/dashboard/performance"
+          to="/analytics"
           className="flex items-center space-x-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition"
         >
           <BarChart3 className="w-4 h-4" />

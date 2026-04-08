@@ -155,6 +155,8 @@ export const dashboardApi = {
     api.get('/dashboard/performance', { params: { period } }),
   
   getClientDashboard: () => api.get('/dashboard/client'),
+
+  getAnalytics: () => api.get('/dashboard/analytics'),
 }
 
 // Invoices API

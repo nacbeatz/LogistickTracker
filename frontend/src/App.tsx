@@ -12,6 +12,7 @@ import StaffDashboard from './pages/StaffDashboard'
 import ManagerDashboard from './pages/ManagerDashboard'
 import NewShipment from './pages/NewShipment'
 import Invoices from './pages/Invoices'
+import Analytics from './pages/Analytics'
 
 // Protected Route component
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
@@ -64,6 +65,12 @@ function App() {
         <Route path="manager" element={
           <ProtectedRoute allowedRoles={['manager', 'admin']}>
             <ManagerDashboard />
+          </ProtectedRoute>
+        } />
+
+        <Route path="analytics" element={
+          <ProtectedRoute allowedRoles={['manager', 'admin']}>
+            <Analytics />
           </ProtectedRoute>
         } />
       </Route>
