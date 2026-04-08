@@ -25,7 +25,25 @@ const aiRoutes = require('./routes/ai');
 const app = express();
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'https://logistick-tracker-eight.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:5174',
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all in dev, restrict in production if needed
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-webhook-key'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
