@@ -10,7 +10,11 @@
     "seed": "node seed.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["logistics", "tracking", "shipment"],
+  "keywords": [
+    "logistics",
+    "tracking",
+    "shipment"
+  ],
   "author": "Messenger Logistics",
   "license": "ISC",
   "type": "commonjs",
