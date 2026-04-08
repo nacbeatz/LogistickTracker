@@ -11,7 +11,8 @@ import {
   PlusCircle,
   DollarSign,
   Ship,
-  Activity
+  Activity,
+  ClipboardList
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { dashboardApi, documentsApi } from '../services/api'
@@ -78,6 +79,7 @@ const Sidebar = () => {
     { to: '/documents', icon: FileText, label: 'Documents' },
     { to: '/invoices', icon: DollarSign, label: 'Invoices' },
     { to: '/staff', icon: Users, label: 'Staff Portal' },
+    { to: '/team', icon: ClipboardList, label: 'Team & Tasks' },
     { to: '/manager', icon: LayoutDashboard, label: 'Overview' },
     { to: '/analytics', icon: BarChart3, label: 'Analytics' },
   ]

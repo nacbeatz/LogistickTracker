@@ -151,15 +151,19 @@ router.post('/', auth, authorize('staff', 'manager', 'admin'), async (req, res) 
 
     await task.save();
 
-    // Notify assigned user
+    // Notify assigned user with container number context
     if (assignedTo) {
       const Notification = require('../models/Notification');
+      const Shipment = require('../models/Shipment');
+      const shipmentDoc = await Shipment.findById(shipment).select('containerNumber');
+      const containerRef = shipmentDoc ? ` for ${shipmentDoc.containerNumber}` : '';
       await Notification.create({
         user: assignedTo,
         type: 'task_assigned',
         title: 'New Task Assigned',
-        message: `You have been assigned a new task: ${title}`,
-        task: task._id
+        message: `You have been assigned ${title.toLowerCase()}${containerRef}.`,
+        task: task._id,
+        shipment: shipment
       });
     }
 
